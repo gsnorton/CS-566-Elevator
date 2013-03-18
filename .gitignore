@@ -1,0 +1,7 @@
+*.bdl
+*.hdl
+*.bak
+*.brk
+*.map
+*.org
+*.rom
