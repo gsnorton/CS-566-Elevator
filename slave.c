@@ -159,7 +159,7 @@ void  TaskStart (void *data)
                    (void *)0,
                    OS_TASK_OPT_STK_CHK | OS_TASK_OPT_STK_CLR);
 
-#if 0
+#if 1
 
     OSTaskCreateExt(MD5HashTask,
                    (void *)0,
@@ -344,7 +344,6 @@ void CommTask (void *pdata)
    while(1 == 1)
    {
       OSMutexPend(ChannelMutex, 0, &err);
-
 
       data = digInBank(0);
 
