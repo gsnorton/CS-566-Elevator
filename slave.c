@@ -180,7 +180,7 @@ void  TaskStart (void *data)
 *******************************************************************************
 */
 
-#define USE_DISP_STR 1
+#define USE_DISP_STR 0
 
 void ForwardTask (void *pdata)
 {
@@ -212,6 +212,7 @@ void ForwardTask (void *pdata)
 
      for(i = 0; i < 8; i++)
      {
+        OSTimeDly(1);
         digOutBank(0, channel_block);
 
 #if USE_DISP_STR == 1
@@ -240,7 +241,6 @@ void ForwardTask (void *pdata)
             case 6: channel_block = 0xE9; break;
         }
 
-        OSTimeDly(1);
      }
 
 #if USE_DISP_STR == 1
@@ -285,6 +285,7 @@ void ReverseTask (void *pdata)
 
      for(i = 7; i >= 0; i--)
      {
+        OSTimeDly(1);
         digOutBank(0, channel_block);
 
 #if USE_DISP_STR == 1
@@ -312,8 +313,6 @@ void ReverseTask (void *pdata)
             case 2: channel_block = 0xF5; break;
             case 1: channel_block = 0xF1; break;
         }
-
-        OSTimeDly(1);
      }
 
 #if USE_DISP_STR == 1
@@ -332,7 +331,7 @@ void CommTask (void *pdata)
 {
    INT8U err;
 
-   int data, _data;
+   int data;
 
    int channel;
    int output_level;
@@ -346,26 +345,10 @@ void CommTask (void *pdata)
    {
       OSMutexPend(ChannelMutex, 0, &err);
 
+
       data = digInBank(0);
 
-#if USE_DISP_STR == 1
-
-      ptr = display;
-
-      _data = data;
-
-      for(channel = 0; channel < 8; channel++)
-      {
-         output_level = _data & 0x01; _data >>= 1;
-
-         ptr += sprintf(ptr, "  %d\t", output_level);
-      }
-
-      DispStr(8, 9, display); //update output status
-
-#endif
-
-      switch(data & 0x07)
+      switch(data ^ 0xF8)
       {
           case 2:
           {
@@ -409,6 +392,21 @@ void CommTask (void *pdata)
              break;
           }
       }
+
+#if USE_DISP_STR == 1
+
+      ptr = display;
+
+      for(channel = 0; channel < 8; channel++)
+      {
+         output_level = data & 0x01; data >>= 1;
+
+         ptr += sprintf(ptr, "  %d\t", output_level);
+      }
+
+      DispStr(8, 9, display); //update output status
+
+#endif
 
       OSMutexPost(ChannelMutex);
 
