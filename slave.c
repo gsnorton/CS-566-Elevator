@@ -200,8 +200,6 @@ void ForwardTask (void *pdata)
 
    while(1 == 1)
    {
-     channel_block = 0xE1;
-
      OSMutexPend(ChannelMutex, 0, &err);
 
 #if USE_DISP_STR == 1
@@ -209,6 +207,8 @@ void ForwardTask (void *pdata)
      DispStr(10, 13, "1");
 
 #endif
+
+     channel_block = 0xE1;
 
      for(i = 0; i < 8; i++)
      {
@@ -273,8 +273,6 @@ void ReverseTask (void *pdata)
 
    while(1 == 1)
    {
-     channel_block = 0xF9;
-
      OSMutexPend(ChannelMutex, 0, &err);
 
 #if USE_DISP_STR == 1
@@ -282,6 +280,8 @@ void ReverseTask (void *pdata)
      DispStr(18, 13, "1");
 
 #endif
+
+     channel_block = 0xF9;
 
      for(i = 7; i >= 0; i--)
      {
