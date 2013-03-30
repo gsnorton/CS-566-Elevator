@@ -186,7 +186,7 @@ void ForwardTask (void *pdata)
 {
    INT8U err;
 
-   int i;
+   register int i;
 
    char *ptr;
    char display[128];
@@ -200,6 +200,8 @@ void ForwardTask (void *pdata)
 
    while(1 == 1)
    {
+     channel_block = 0xE1;
+
      OSMutexPend(ChannelMutex, 0, &err);
 
 #if USE_DISP_STR == 1
@@ -208,12 +210,13 @@ void ForwardTask (void *pdata)
 
 #endif
 
-     channel_block = 0xE1;
-
      for(i = 0; i < 8; i++)
      {
-        OSTimeDly(1);
         digOutBank(0, channel_block);
+        OSTimeDly(1);
+
+        if((digInBank(0) ^ 0xF8) == 0)
+            break;
 
 #if USE_DISP_STR == 1
 
@@ -259,7 +262,7 @@ void ReverseTask (void *pdata)
 {
    INT8U err;
 
-   int i;
+   register int i, data;
 
    char *ptr;
    char display[128];
@@ -273,6 +276,8 @@ void ReverseTask (void *pdata)
 
    while(1 == 1)
    {
+     channel_block = 0xF9;
+
      OSMutexPend(ChannelMutex, 0, &err);
 
 #if USE_DISP_STR == 1
@@ -281,12 +286,13 @@ void ReverseTask (void *pdata)
 
 #endif
 
-     channel_block = 0xF9;
-
      for(i = 7; i >= 0; i--)
      {
-        OSTimeDly(1);
         digOutBank(0, channel_block);
+        OSTimeDly(1);
+
+        if((digInBank(0) ^ 0xF8) == 0)
+            break;
 
 #if USE_DISP_STR == 1
 
@@ -331,7 +337,7 @@ void CommTask (void *pdata)
 {
    INT8U err;
 
-   int data;
+   register int data; //, last_data;
 
    int channel;
    int output_level;
@@ -345,6 +351,7 @@ void CommTask (void *pdata)
    {
       OSMutexPend(ChannelMutex, 0, &err);
 
+      //last_data = data;
       data = digInBank(0);
 
       switch(data ^ 0xF8)
@@ -388,6 +395,9 @@ void CommTask (void *pdata)
              DispStr(26, 13, "1");
 
 #endif
+
+             digOutBank(0, 0);
+
              break;
           }
       }
