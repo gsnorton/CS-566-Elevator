@@ -212,11 +212,14 @@ void ForwardTask (void *pdata)
 
      for(i = 0; i < 8; i++)
      {
+        if((digInBank(0) ^ 0xF8) == 0)
+        {
+
+            break;
+        }
+
         digOutBank(0, channel_block);
         OSTimeDly(1);
-
-        if((digInBank(0) ^ 0xF8) == 0)
-            break;
 
 #if USE_DISP_STR == 1
 
@@ -288,11 +291,14 @@ void ReverseTask (void *pdata)
 
      for(i = 7; i >= 0; i--)
      {
+        if((digInBank(0) ^ 0xF8) == 0)
+        {
+
+            break;
+        }
+
         digOutBank(0, channel_block);
         OSTimeDly(1);
-
-        if((digInBank(0) ^ 0xF8) == 0)
-            break;
 
 #if USE_DISP_STR == 1
 
@@ -337,7 +343,7 @@ void CommTask (void *pdata)
 {
    INT8U err;
 
-   register int data; //, last_data;
+   register int data;
 
    int channel;
    int output_level;
@@ -351,7 +357,6 @@ void CommTask (void *pdata)
    {
       OSMutexPend(ChannelMutex, 0, &err);
 
-      //last_data = data;
       data = digInBank(0);
 
       switch(data ^ 0xF8)
