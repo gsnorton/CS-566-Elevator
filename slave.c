@@ -18,7 +18,6 @@
 #define OS_TASK_STAT_EN        1       // Enable statistics task creation
 #define OS_MBOX_EN             1       // Enable mailboxes
 #define OS_MBOX_POST_EN        1       // Enable MboxPost
-#define OS_TIME_DLY_HMSM_EN    1       // Enable OSTimeDlyHMSM
 #define STACK_CNT_512          8       // number of 512 byte stacks
                                        //  (application tasks + stat task +
                                        //    prog stack)
@@ -212,12 +211,6 @@ void ForwardTask (void *pdata)
 
      for(i = 0; i < 8; i++)
      {
-        if((digInBank(0) ^ 0xF8) == 0)
-        {
-
-            break;
-        }
-
         digOutBank(0, channel_block);
         OSTimeDly(1);
 
@@ -291,12 +284,6 @@ void ReverseTask (void *pdata)
 
      for(i = 7; i >= 0; i--)
      {
-        if((digInBank(0) ^ 0xF8) == 0)
-        {
-
-            break;
-        }
-
         digOutBank(0, channel_block);
         OSTimeDly(1);
 
@@ -400,8 +387,6 @@ void CommTask (void *pdata)
              DispStr(26, 13, "1");
 
 #endif
-
-             digOutBank(0, 0);
 
              break;
           }
