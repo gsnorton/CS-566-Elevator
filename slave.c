@@ -8,23 +8,26 @@
 
 // Redefine uC/OS-II configuration constants as necessary
 
-#define OS_MAX_EVENTS          4       // Maximum number of events
+#define OS_MAX_EVENTS          3       // Maximum number of events
                                        //  (semaphores, queues, mailboxes)
 #define OS_MAX_TASKS           6       // Maximum number of tasks system can
                                        //  create (less stat and idle tasks)
 
 #define OS_TASK_CREATE_EN      0       // Disable normal task creation
 #define OS_TASK_CREATE_EXT_EN  1       // Enable extended task creation
-#define OS_TASK_STAT_EN        1       // Enable statistics task creation
+#define OS_TASK_STAT_EN        0       // Enable statistics task creation
 #define OS_MBOX_EN             1       // Enable mailboxes
 #define OS_MBOX_POST_EN        1       // Enable MboxPost
-#define STACK_CNT_512          8       // number of 512 byte stacks
+#define STACK_CNT_512          6       // number of 512 byte stacks
                                        //  (application tasks + stat task +
                                        //    prog stack)
 
 #define OS_TICKS_PER_SEC       682
 
 #define OS_MUTEX_EN            1
+
+#define DINBUFSIZE   15
+#define DOUTBUFSIZE  15
 
 #use "BL4S1xx.lib"
 #use "ucos2.lib"
@@ -58,7 +61,6 @@
 
 OS_EVENT        *FwdMbox;
 OS_EVENT        *RevMbox;
-OS_EVENT        *DoneMbox;
 
 OS_EVENT        *ChannelMutex;
 
@@ -116,7 +118,6 @@ void  TaskStart (void *data)
 
     FwdMbox =  OSMboxCreate((void *)0);
     RevMbox =  OSMboxCreate((void *)0);
-    DoneMbox = OSMboxCreate((void *)0);
 
     ChannelMutex = OSMutexCreate(9, &err);
 
@@ -672,18 +673,22 @@ void MD5HashTask (void *pdata)
    MD5_CTX context;
    unsigned char digest[16];
 
+   serDopen(300);
+
    while(1 == 1)
    {
       MD5Init(&context);
       MD5Update(&context, "", 0);
       MD5Final(digest, &context);
 
-#if USE_DISP_STR == 1
-
       ptr = display;
 
       for(i = 0; i < 16; i++)
           ptr += sprintf(ptr, "%02X", digest[i]);
+
+      *ptr = 0;
+
+#if USE_DISP_STR == 1
 
       OSMutexPend(ChannelMutex, 0, &err);
       DispStr(8, 16, display);
@@ -691,7 +696,10 @@ void MD5HashTask (void *pdata)
 
 #endif
 
-      OSTimeDly(1);
+      serDputs(display);
+
+      while (serXsending(SER_PORT_D))
+          OSTimeDly(1);
    }
 }
 
