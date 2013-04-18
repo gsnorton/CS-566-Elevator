@@ -51,7 +51,7 @@
 #define          TASK_1_PRIO        11
 #define          TASK_2_PRIO        12
 #define          TASK_3_PRIO        13
-#define          TASK_4_PRIO        40
+#define          TASK_4_PRIO        20
 
 /*
 *******************************************************************************
@@ -110,9 +110,7 @@ void main (void)
 
 void  TaskStart (void *data)
 {
-    static char    s[80];
-    auto INT16S  key;
-    auto INT8U   err;
+    auto INT8U err;
 
     data = data; /* Prevent compiler warning */
 
@@ -159,8 +157,6 @@ void  TaskStart (void *data)
                    (void *)0,
                    OS_TASK_OPT_STK_CHK | OS_TASK_OPT_STK_CLR);
 
-#if 1
-
     OSTaskCreateExt(MD5HashTask,
                    (void *)0,
                    TASK_4_PRIO,
@@ -168,8 +164,6 @@ void  TaskStart (void *data)
                    TASK_STK_SIZE,
                    (void *)0,
                    OS_TASK_OPT_STK_CHK | OS_TASK_OPT_STK_CLR);
-
-#endif
 
     for (;;) { OSTimeDly(1); }
 }
@@ -180,7 +174,26 @@ void  TaskStart (void *data)
 *******************************************************************************
 */
 
-#define USE_DISP_STR 0
+#define USE_DISP_STR 1
+
+void DispBits(int col, int row, int byte)
+{
+   char *ptr;
+   char display[128];
+
+   int channel;
+   int output_level;
+
+   ptr = display;
+
+   for(channel = 0; channel < 8; channel++)
+   {
+      output_level = byte & 0x01; byte >>= 1;
+      ptr += sprintf(ptr, "  %d\t", output_level);
+   }
+
+   DispStr(col, row, display);
+}
 
 void ForwardTask (void *pdata)
 {
@@ -188,13 +201,7 @@ void ForwardTask (void *pdata)
 
    register int i;
 
-   char *ptr;
-   char display[128];
-
-   int channel;
-   int output_level;
-
-   char channel_block;
+   register char channel_block;
 
    /* ---------------------------------------------------------------------- */
 
@@ -217,16 +224,7 @@ void ForwardTask (void *pdata)
 
 #if USE_DISP_STR == 1
 
-        ptr = display;
-
-        for(channel = 0; channel < BL_DIGITAL_OUT; channel++)
-        {
-           output_level = channel_block & 0x01;
-           channel_block >>= 1;
-           ptr += sprintf(ptr, "  %d\t", output_level);
-        }
-
-        DispStr(8, 5, display);  //update output status
+        DispBits(8, 5, channel_block);
 
 #endif
 
@@ -240,7 +238,6 @@ void ForwardTask (void *pdata)
             case 5: channel_block = 0xE8; break;
             case 6: channel_block = 0xE9; break;
         }
-
      }
 
 #if USE_DISP_STR == 1
@@ -259,21 +256,15 @@ void ReverseTask (void *pdata)
 {
    INT8U err;
 
-   register int i, data;
+   register int i;
 
-   char *ptr;
-   char display[128];
-
-   int channel;
-   int output_level;
-
-   char channel_block;
+   register char channel_block;
 
    /* ---------------------------------------------------------------------- */
 
    while(1 == 1)
    {
-     channel_block = 0xF9;
+     channel_block = 0xD9;
 
      OSMutexPend(ChannelMutex, 0, &err);
 
@@ -290,28 +281,19 @@ void ReverseTask (void *pdata)
 
 #if USE_DISP_STR == 1
 
-        ptr = display;
-
-        for(channel = 0; channel < BL_DIGITAL_OUT; channel++)
-        {
-           output_level = channel_block & 0x01;
-           channel_block >>= 1;
-           ptr += sprintf(ptr, "  %d\t", output_level);
-        }
-
-        DispStr(8, 5, display);  //update output status
+        DispBits(8, 5, channel_block);
 
 #endif
 
         switch(i)
         {
-            case 7: channel_block = 0xF8; break;
-            case 6: channel_block = 0xFA; break;
-            case 5: channel_block = 0xF2; break;
-            case 4: channel_block = 0xF6; break;
-            case 3: channel_block = 0xF4; break;
-            case 2: channel_block = 0xF5; break;
-            case 1: channel_block = 0xF1; break;
+            case 7: channel_block = 0xD8; break;
+            case 6: channel_block = 0xDA; break;
+            case 5: channel_block = 0xD2; break;
+            case 4: channel_block = 0xD6; break;
+            case 3: channel_block = 0xD4; break;
+            case 2: channel_block = 0xD5; break;
+            case 1: channel_block = 0xD1; break;
         }
      }
 
@@ -333,13 +315,7 @@ void CommTask (void *pdata)
 
    register int data;
 
-   int channel;
-   int output_level;
-
-   char *ptr;
-   char display[128];
-
-   int seen_idle = 0;
+   register int seen_idle = 0;
 
    while(1 == 1)
    {
@@ -364,7 +340,7 @@ void CommTask (void *pdata)
              break;
           }
 
-          case 3:
+          case 1:
           {
              if(0 == seen_idle) break;
 
@@ -395,16 +371,7 @@ void CommTask (void *pdata)
 
 #if USE_DISP_STR == 1
 
-      ptr = display;
-
-      for(channel = 0; channel < 8; channel++)
-      {
-         output_level = data & 0x01; data >>= 1;
-
-         ptr += sprintf(ptr, "  %d\t", output_level);
-      }
-
-      DispStr(8, 9, display); //update output status
+      DispBits(8, 9, data);
 
 #endif
 
@@ -695,8 +662,6 @@ void MD5HashTask (void *pdata)
       OSMutexPost(ChannelMutex);
 
 #endif
-
-      serDputs(display);
 
       while (serXsending(SER_PORT_D))
           OSTimeDly(1);
