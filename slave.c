@@ -1,6 +1,6 @@
 /*****************************************************************************
 
-   LAB7.c
+   slave.c
 
 ******************************************************************************/
 
@@ -8,7 +8,7 @@
 
 // Redefine uC/OS-II configuration constants as necessary
 
-#define OS_MAX_EVENTS          4       // Maximum number of events
+#define OS_MAX_EVENTS          3       // Maximum number of events
                                        //  (semaphores, queues, mailboxes)
 #define OS_MAX_TASKS           6       // Maximum number of tasks system can
                                        //  create (less stat and idle tasks)
@@ -61,7 +61,6 @@
 
 OS_EVENT        *FwdMbox;
 OS_EVENT        *RevMbox;
-OS_EVENT        *DoneMbox;
 
 OS_EVENT        *ChannelMutex;
 
@@ -117,7 +116,6 @@ void  TaskStart (void *data)
 
     FwdMbox  = OSMboxCreate((void *)0);
     RevMbox  = OSMboxCreate((void *)0);
-    DoneMbox = OSMboxCreate((void *)0);
 
     ChannelMutex = OSMutexCreate(9, &err);
 
@@ -318,8 +316,6 @@ void CommTask (void *pdata)
 
    register int data;
    register int seen_idle = 0;
-
-   OSMboxPost(DoneMbox, (void*)1);
 
    while(1 == 1)
    {

@@ -1,6 +1,6 @@
 /*****************************************************************************
 
-   LAB7.c
+   master.c
 
 ******************************************************************************/
 
@@ -327,33 +327,7 @@ void CommTask (void *pdata)
 
       data = digInBank(0);
 
-      switch(data & 0x03)
-      {
-          case 2:
-          {
-             if(0 == seen_idle) break;
-
-             OSMboxPost(RevMbox, (void*)1);
-
-             break;
-          }
-
-          case 1:
-          {
-             if(0 == seen_idle) break;
-
-             OSMboxPost(FwdMbox, (void*)1);
-
-             break;
-          }
-
-          case 0:
-          {
-             seen_idle = 1;
-
-             break;
-          }
-      }
+      /* XXXX */
 
 #if USE_DISP_STR == 1
 
@@ -649,8 +623,9 @@ void MD5HashTask (void *pdata)
 
 #endif
 
-      while (serXsending(SER_PORT_D))
-          OSTimeDly(1);
+      serDputs(display);
+
+      while (serXsending(SER_PORT_D)) ;
    }
 }
 
