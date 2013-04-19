@@ -8,7 +8,7 @@
 
 // Redefine uC/OS-II configuration constants as necessary
 
-#define OS_MAX_EVENTS          3       // Maximum number of events
+#define OS_MAX_EVENTS          4       // Maximum number of events
                                        //  (semaphores, queues, mailboxes)
 #define OS_MAX_TASKS           6       // Maximum number of tasks system can
                                        //  create (less stat and idle tasks)
@@ -61,6 +61,7 @@
 
 OS_EVENT        *FwdMbox;
 OS_EVENT        *RevMbox;
+OS_EVENT        *DoneMbox;
 
 OS_EVENT        *ChannelMutex;
 
@@ -114,8 +115,9 @@ void  TaskStart (void *data)
 
     data = data; /* Prevent compiler warning */
 
-    FwdMbox =  OSMboxCreate((void *)0);
-    RevMbox =  OSMboxCreate((void *)0);
+    FwdMbox  = OSMboxCreate((void *)0);
+    RevMbox  = OSMboxCreate((void *)0);
+    DoneMbox = OSMboxCreate((void *)0);
 
     ChannelMutex = OSMutexCreate(9, &err);
 
@@ -176,7 +178,7 @@ void  TaskStart (void *data)
 
 #define USE_DISP_STR 1
 
-void DispBits(int col, int row, int byte)
+static void DispBits(int col, int row, int byte)
 {
    char *ptr;
    char display[128];
@@ -214,6 +216,7 @@ void ForwardTask (void *pdata)
 #if USE_DISP_STR == 1
 
      DispStr(10, 13, "1");
+     DispStr(26, 13, "0");
 
 #endif
 
@@ -236,18 +239,18 @@ void ForwardTask (void *pdata)
             case 3: channel_block = 0xE2; break;
             case 4: channel_block = 0xEA; break;
             case 5: channel_block = 0xE8; break;
-            case 6: channel_block = 0xE9; break;
+            case 6: channel_block = 0xC9; break;
         }
      }
 
 #if USE_DISP_STR == 1
 
      DispStr(10, 13, "0");
+     DispStr(26, 13, "1");
 
 #endif
 
      OSMutexPost(ChannelMutex);
-
      OSMboxPend(FwdMbox, 0, &err);
   }
 }
@@ -257,7 +260,6 @@ void ReverseTask (void *pdata)
    INT8U err;
 
    register int i;
-
    register char channel_block;
 
    /* ---------------------------------------------------------------------- */
@@ -271,6 +273,7 @@ void ReverseTask (void *pdata)
 #if USE_DISP_STR == 1
 
      DispStr(18, 13, "1");
+     DispStr(26, 13, "0");
 
 #endif
 
@@ -293,18 +296,18 @@ void ReverseTask (void *pdata)
             case 4: channel_block = 0xD6; break;
             case 3: channel_block = 0xD4; break;
             case 2: channel_block = 0xD5; break;
-            case 1: channel_block = 0xD1; break;
+            case 1: channel_block = 0xC1; break;
         }
      }
 
 #if USE_DISP_STR == 1
 
      DispStr(18, 13, "0");
+     DispStr(26, 13, "1");
 
 #endif
 
      OSMutexPost(ChannelMutex);
-
      OSMboxPend(RevMbox, 0, &err);
    }
 }
@@ -314,8 +317,9 @@ void CommTask (void *pdata)
    INT8U err;
 
    register int data;
-
    register int seen_idle = 0;
+
+   OSMboxPost(DoneMbox, (void*)1);
 
    while(1 == 1)
    {
@@ -323,17 +327,11 @@ void CommTask (void *pdata)
 
       data = digInBank(0);
 
-      switch(data ^ 0xF8)
+      switch(data & 0x03)
       {
           case 2:
           {
              if(0 == seen_idle) break;
-
-#if USE_DISP_STR == 1
-
-             DispStr(26, 13, "0");
-
-#endif
 
              OSMboxPost(RevMbox, (void*)1);
 
@@ -344,12 +342,6 @@ void CommTask (void *pdata)
           {
              if(0 == seen_idle) break;
 
-#if USE_DISP_STR == 1
-
-             DispStr(26, 13, "0");
-
-#endif
-
              OSMboxPost(FwdMbox, (void*)1);
 
              break;
@@ -358,12 +350,6 @@ void CommTask (void *pdata)
           case 0:
           {
              seen_idle = 1;
-
-#if USE_DISP_STR == 1
-
-             DispStr(26, 13, "1");
-
-#endif
 
              break;
           }
@@ -663,8 +649,9 @@ void MD5HashTask (void *pdata)
 
 #endif
 
-      while (serXsending(SER_PORT_D))
-          OSTimeDly(1);
+      serDputs(display);
+
+      while (serXsending(SER_PORT_D)) ;
    }
 }
 
