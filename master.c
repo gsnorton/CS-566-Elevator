@@ -88,9 +88,17 @@ static  void     TaskStartCreateTasks(void);
 
 void main (void)
 {
+    int channel;
+
     ClearScreen();
 
     OSInit();
+    brdInit();
+
+    for(channel = 0; channel < BL_DIGITAL_OUT; ++channel)
+    {
+       setDigOut(channel, 0);
+    }
 
     OSTaskCreateExt(TaskStart,
                    (void *)0,
@@ -120,9 +128,6 @@ void  TaskStart (void *data)
     DoneMbox = OSMboxCreate((void *)0);
 
     ChannelMutex = OSMutexCreate(9, &err);
-
-    // Initialize the controller
-    brdInit();
 
     DispStr(8, 3, " OUT0\t OUT1\t OUT2\t OUT3\t OUT4\t OUT5\t OUT6\t OUT7");
     DispStr(8, 4, "-----\t-----\t-----\t-----\t-----\t-----\t-----\t-----");
