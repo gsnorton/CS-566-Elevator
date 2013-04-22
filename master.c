@@ -53,6 +53,8 @@
 #define          TASK_3_PRIO        13
 #define          TASK_4_PRIO        20
 
+#define          MAX_LEVEL          248
+
 /*
 *******************************************************************************
 *                                   VARIABLES
@@ -61,7 +63,6 @@
 
 OS_EVENT        *FwdMbox;
 OS_EVENT        *RevMbox;
-OS_EVENT        *DoneMbox;
 
 OS_EVENT        *ChannelMutex;
 
@@ -125,20 +126,20 @@ void  TaskStart (void *data)
 
     FwdMbox  = OSMboxCreate((void *)0);
     RevMbox  = OSMboxCreate((void *)0);
-    DoneMbox = OSMboxCreate((void *)0);
 
     ChannelMutex = OSMutexCreate(9, &err);
 
     DispStr(8, 3, " OUT0\t OUT1\t OUT2\t OUT3\t OUT4\t OUT5\t OUT6\t OUT7");
     DispStr(8, 4, "-----\t-----\t-----\t-----\t-----\t-----\t-----\t-----");
 
-    DispStr(8, 7, "  IN0\t  IN1\t  IN2\t  IN3\t  IN4\t  IN5\t  IN6\t  IN7");
-    DispStr(8, 8, "-----\t-----\t-----\t-----\t-----\t-----\t-----\t-----");
+    DispStr(8, 7, "  IN0\t  IN1\t     \tCYCLE\tLEVEL\tPAUSE\t     \t     ");
+    DispStr(8, 8, "-----\t-----\t     \t-----\t-----\t-----\t     \t     ");
 
     DispStr(8, 11,"  FWD\t  REV\t IDLE");
     DispStr(8, 12,"-----\t-----\t-----");
 
-    DispStr(8, 20, "<-PRESS 'F4' to return to Edit Mode->");
+
+    DispStr(8, 22, "<-PRESS 'F4' to return to Edit Mode->");
 
     OSTaskCreateExt(ForwardTask,
                    (void *)0,
@@ -181,7 +182,7 @@ void  TaskStart (void *data)
 *******************************************************************************
 */
 
-#define USE_DISP_STR 1
+#define USE_DISP_STR 0
 
 static void DispBits(int col, int row, int byte)
 {
@@ -198,6 +199,15 @@ static void DispBits(int col, int row, int byte)
       output_level = byte & 0x01; byte >>= 1;
       ptr += sprintf(ptr, "  %d\t", output_level);
    }
+
+   DispStr(col, row, display);
+}
+
+static void DispInt(int col, int row, int value)
+{
+   char display[128];
+
+   sprintf(display, "%05d", value);
 
    DispStr(col, row, display);
 }
@@ -321,24 +331,86 @@ void CommTask (void *pdata)
 {
    INT8U err;
 
-   register int data;
-   register int seen_idle = 0;
+   //register int data;
 
-   OSMboxPost(DoneMbox, (void*)1);
+   register int cycle = 0;
+   register int level = 0;
+   register int incr = 0;
+
+   int pause_level = -1;
+
+   char key;
 
    while(1 == 1)
    {
       OSMutexPend(ChannelMutex, 0, &err);
 
-      data = digInBank(0);
+#if USE_DISP_STR == 1
 
-      /* XXXX */
+      DispInt(32, 9, cycle);
+      DispInt(40, 9, level);
+
+#endif
+
+      if(0 == cycle)
+      {
+         DispStr(8, 19,
+                 "**** Master - (t)en cycle test. (p)ause test. ****");
+
+         if(kbhit())
+         {
+            key = getchar();
+
+            if('t' == key)
+            {
+                DispStr(8, 19,
+                        "**** Master - (h)alt                          ****");
+
+                level = 0; cycle = 10; incr = 8;
+            }
+            else if('p' == key)
+            {
+                DispStr(8, 19,
+                        "**** Master - pause at level:                 ****");
+
+                level = 0; cycle = 1; incr = 8;
+            }
+         }
+      }
+      else if(0 < cycle)
+      {
+         //data = digInBank(0);
 
 #if USE_DISP_STR == 1
 
-      DispBits(8, 9, data);
+         //DispBits(8, 9, data);
 
 #endif
+
+         if((0 == level) && (incr < 0))
+         {
+             cycle -= 1;
+             incr = -incr;
+         }
+         else if(MAX_LEVEL == level)
+         {
+             incr = -incr;
+         }
+
+         if(0 < cycle)
+         {
+             level += incr;
+
+             if(0 < incr)
+             {
+                 OSMboxPost(FwdMbox, (void*)1);
+             }
+             else
+             {
+                 OSMboxPost(RevMbox, (void*)1);
+             }
+         }
+      }
 
       OSMutexPost(ChannelMutex);
 
