@@ -136,7 +136,7 @@ void  TaskStart (void *data)
     DispStr(8, 11,"  FWD\t  REV\t IDLE");
     DispStr(8, 12,"-----\t-----\t-----");
 
-    DispStr(8, 20, "<-PRESS 'F4' to return to Edit Mode->");
+    DispStr(8, 22, "<-PRESS 'F4' to return to Edit Mode->");
 
     OSTaskCreateExt(ForwardTask,
                    (void *)0,

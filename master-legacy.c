@@ -60,7 +60,7 @@ Task 2: Unused
 #define MAX_CYCLE             10
 #define MAX_LEVEL            248
 #define MAX_SEQ                8
-#define OS_TICKS_PER_SEC     680
+#define OS_TICKS_PER_SEC     682
 
 #use "BL4S1xx.LIB"
 #use "ucos2.lib"
@@ -89,7 +89,7 @@ Task 2: Unused
 
  static int delayTics = 0;                    /* a small test to cause a variable time context switch */
         int channel;
-        int channel_bank = 0x00;
+        int channel_bank = 0x09;
         int m_seq[8] = {
                        		0x21,0x25,0x24,0x26,0x22,0x2A,0x28,0x29    //using lower order bits
                        };
@@ -124,8 +124,8 @@ void calc_delay(struct tm rtc)
     	char time_str[80];
 
       tm_rd(&nrtc);
-		strftime( time_str, sizeof time_str, "E-Time = %I:%M:%S \n\n", &nrtc);
-      DispStr(45,4,time_str);
+ //		strftime( time_str, sizeof time_str, "E-Time = %I:%M:%S \n\n", &nrtc);
+ //     DispStr(45,4,time_str);
 
       diff_hours = nrtc.tm_hour - rtc.tm_hour;   //assume same day
 		diff_mins  = nrtc.tm_min  - rtc.tm_min;
@@ -177,7 +177,7 @@ char Run_Motor_Seq(int pause_event, int curr_cycle, int pause_cycle, int pause_l
             digOutBank(0, (0x0F&channel_bank));
          	OSMboxPost(T_Mbox,(void*)&t2_msg);
 
-         	OSTimeDly(682);//1 sec delay
+         	OSTimeDly(682*5);//1 sec delay
          }//end pause event
 
          s_ptr = &m_seq[0];	//reset pointer to write the array again
@@ -188,18 +188,17 @@ char Run_Motor_Seq(int pause_event, int curr_cycle, int pause_cycle, int pause_l
       for(l=MAX_LEVEL+1;l<=MAX_LEVEL*2;l++)
       {
          channel_bank = *(s_ptr+(m--)%MAX_SEQ);
-         digOutBank(0,0x10^channel_bank);  //mask slave command
-         OSTimeDly(1);
+         digOutBank(0,0x30 | channel_bank);  //mask slave command
 	      if((l==pause_level)&&(curr_cycle==pause_cycle)&& pause_event)
 	      {
 	         digOutBank(0, (0x0F&channel_bank));
 	         OSMboxPost(T_Mbox,(void*)&t2_msg);
-	         OSTimeDly(682);//1 sec delay
+	         OSTimeDly(682*5);//1 sec delay
 	      }//end pause event
-
+			else OSTimeDly(1);
       	s_ptr = &m_seq[MAX_SEQ-1];  //reset pointer to write the array again
       }//end levels backward
-
+      digOutBank(0, (0x0F&channel_bank));
       if(pause_event)
       	return '1';
       else
@@ -226,7 +225,7 @@ void Run_Cont(void)      //runs a complete cycle, then checks for a kbhit
          for(l=0;l<MAX_LEVEL;l++)
          {
          	channel_bank = *(r_ptr+(p--)%MAX_SEQ);
-            digOutBank(0,0X10 ^ channel_bank);   //mask slave command
+            digOutBank(0,0X30 | channel_bank);   //mask slave command
             OSTimeDly(1);
          }//end for 'l' backward
          r_ptr = &m_seq[MAX_SEQ-1];
@@ -325,8 +324,8 @@ void  Task1 (void *pdata)
 
 
            	tm_rd(&rtc);  //gets pointer to the structure of time read
-            strftime( time_str, sizeof time_str, "S-Time = %I:%M:%S \n", &rtc); // add formatted hours/min/sec to the string
-            DispStr(45,2,time_str);
+//            strftime( time_str, sizeof time_str, "S-Time = %I:%M:%S \n", &rtc); // add formatted hours/min/sec to the string
+//            DispStr(45,2,time_str);
 //-----------------------------------------------------Cycle-Loop--------------
 
             if(pause_event)
@@ -338,12 +337,12 @@ void  Task1 (void *pdata)
 						key = Run_Motor_Seq(pause_event, i, pause_cycle, pause_level);
 //-----------------------------------------------------------------------------
              	}//end for - MAX_CYCLE loop
-//             	calc_delay(rtc);
+            digOutBank(0, (0x0F&channel_bank));      //send halt to slave
             }//end if pause_event
 //-----------------------------------------------------------------------------
              else if(!pause_event)
              {
-               	for(j=0;j<MAX_CYCLE;j++)
+               	while(1)
                   {
                   	Run_Cont();
 	                  if(kbhit())
@@ -355,7 +354,7 @@ void  Task1 (void *pdata)
 	                        break;
 	                     }//end if k=h
                   	}//end if kbhit
-                  }//end cycles
+                  }//end while
               }//end else if !pause_event
 //--------------------------------------------------End Run Op 1&2-------------
               calc_delay(rtc);
