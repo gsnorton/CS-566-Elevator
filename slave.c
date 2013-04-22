@@ -206,9 +206,10 @@ void ForwardTask (void *pdata)
 {
    INT8U err;
 
-   register int i;
-
+   register int i, data;
    register char channel_block;
+
+   int active = 0;
 
    /* ---------------------------------------------------------------------- */
 
@@ -227,6 +228,15 @@ void ForwardTask (void *pdata)
 
      for(i = 0; i < 8; i++)
      {
+        data = digInBank(0) & 0x03 & active;
+
+        while(0x03 == data)
+        {
+            OSTimeDly(1);
+            data = digInBank(0) & 0x03;
+            if(0 == data) return;
+        }
+
         digOutBank(0, channel_block);
         OSTimeDly(1);
 
@@ -256,6 +266,9 @@ void ForwardTask (void *pdata)
 #endif
 
      OSMutexPost(ChannelMutex);
+
+     active = 0xFF;
+
      OSMboxPend(FwdMbox, 0, &err);
   }
 }
@@ -264,8 +277,10 @@ void ReverseTask (void *pdata)
 {
    INT8U err;
 
-   register int i;
+   register int i, data;
    register char channel_block;
+
+   int active = 0;
 
    /* ---------------------------------------------------------------------- */
 
@@ -284,6 +299,15 @@ void ReverseTask (void *pdata)
 
      for(i = 7; i >= 0; i--)
      {
+        data = digInBank(0) & 0x03 & active;
+
+        while(0x03 == data)
+        {
+            OSTimeDly(1);
+            data = digInBank(0) & 0x03;
+            if(0 == data) return;
+        }
+
         digOutBank(0, channel_block);
         OSTimeDly(1);
 
@@ -313,6 +337,9 @@ void ReverseTask (void *pdata)
 #endif
 
      OSMutexPost(ChannelMutex);
+
+     active = 0xFF;
+
      OSMboxPend(RevMbox, 0, &err);
    }
 }
@@ -328,9 +355,9 @@ void CommTask (void *pdata)
    {
       OSMutexPend(ChannelMutex, 0, &err);
 
-      data = digInBank(0);
+      data = digInBank(0) & 0x03;
 
-      switch(data & 0x03)
+      switch(data)
       {
           case 2:
           {

@@ -207,16 +207,53 @@ static void DispInt(int col, int row, int value)
 {
    char display[128];
 
-   sprintf(display, "%05d", value);
+   sprintf(display, "%5d", value);
 
    DispStr(col, row, display);
 }
+
+/* ------------------------------------------------------------------------- */
+
+/* Borrowed from http://rabbit.eng.miami.edu/class/een218/getchar.html */
+
+/* Modified for this project by G. Norton */
+
+static int ReadInt(int col, int row, int size, int limit)
+{
+   int i,value=0,valid=0;
+
+   while(0 == valid)
+   {
+       for (i=0; i<size; i+=1)
+       {
+           char c=getchar();
+           if (c==' ') c='0';
+           value=value*10+c-'0';
+
+           DispInt(col, row, value);
+       }
+
+       if((0 > value) || (limit < value))
+       {
+           value = 0;
+           DispStr(col, row, "ERROR");
+       }
+       else
+       {
+           valid = 1;
+       }
+   }
+
+   return value;
+}
+
+/* ------------------------------------------------------------------------- */
 
 void ForwardTask (void *pdata)
 {
    INT8U err;
 
-   register int i;
+   register int i, mbox_val = 8;
 
    register char channel_block;
 
@@ -235,9 +272,16 @@ void ForwardTask (void *pdata)
 
 #endif
 
-     for(i = 0; i < 8; i++)
+     for(i = 0; i < ((mbox_val > 0) ? mbox_val : 8); i++)
      {
-        digOutBank(0, channel_block);
+        if((8 != mbox_val) && ((i + 1) == mbox_val))
+            channel_block |= 0xF0;
+
+        if((0 < mbox_val) || (i >= abs(mbox_val)))
+        {
+            digOutBank(0, channel_block);
+        }
+
         OSTimeDly(1);
 
 #if USE_DISP_STR == 1
@@ -266,7 +310,8 @@ void ForwardTask (void *pdata)
 #endif
 
      OSMutexPost(ChannelMutex);
-     OSMboxPend(FwdMbox, 0, &err);
+
+     mbox_val = (int)OSMboxPend(FwdMbox, 0, &err);
   }
 }
 
@@ -274,7 +319,7 @@ void ReverseTask (void *pdata)
 {
    INT8U err;
 
-   register int i;
+   register int i, mbox_val = 8;
    register char channel_block;
 
    /* ---------------------------------------------------------------------- */
@@ -292,9 +337,16 @@ void ReverseTask (void *pdata)
 
 #endif
 
-     for(i = 7; i >= 0; i--)
+     for(i = 0; i < ((mbox_val > 0) ? mbox_val : 8); i++)
      {
-        digOutBank(0, channel_block);
+        if((8 != mbox_val) && ((i + 1) == mbox_val))
+            channel_block |= 0xF0;
+
+        if((0 < mbox_val) || (i >= abs(mbox_val)))
+        {
+            digOutBank(0, channel_block);
+        }
+
         OSTimeDly(1);
 
 #if USE_DISP_STR == 1
@@ -305,13 +357,13 @@ void ReverseTask (void *pdata)
 
         switch(i)
         {
-            case 7: channel_block = 0xD8; break;
-            case 6: channel_block = 0xDA; break;
-            case 5: channel_block = 0xD2; break;
-            case 4: channel_block = 0xD6; break;
-            case 3: channel_block = 0xD4; break;
-            case 2: channel_block = 0xD5; break;
-            case 1: channel_block = 0xC1; break;
+            case 0: channel_block = 0xD8; break;
+            case 1: channel_block = 0xDA; break;
+            case 2: channel_block = 0xD2; break;
+            case 3: channel_block = 0xD6; break;
+            case 4: channel_block = 0xD4; break;
+            case 5: channel_block = 0xD5; break;
+            case 6: channel_block = 0xC1; break;
         }
      }
 
@@ -323,7 +375,8 @@ void ReverseTask (void *pdata)
 #endif
 
      OSMutexPost(ChannelMutex);
-     OSMboxPend(RevMbox, 0, &err);
+
+     mbox_val = (int)OSMboxPend(RevMbox, 0, &err);
    }
 }
 
@@ -337,7 +390,7 @@ void CommTask (void *pdata)
    register int level = 0;
    register int incr = 0;
 
-   int pause_level = -1;
+   int pause_level = MAX_LEVEL + 1;
 
    char key;
 
@@ -349,11 +402,14 @@ void CommTask (void *pdata)
 
       DispInt(32, 9, cycle);
       DispInt(40, 9, level);
+      DispInt(48, 9, pause_level);
 
 #endif
 
       if(0 == cycle)
       {
+         pause_level = MAX_LEVEL + 1;
+
          DispStr(8, 19,
                  "**** Master - (t)en cycle test. (p)ause test. ****");
 
@@ -364,7 +420,7 @@ void CommTask (void *pdata)
             if('t' == key)
             {
                 DispStr(8, 19,
-                        "**** Master - (h)alt                          ****");
+                        "**** Master - running                         ****");
 
                 level = 0; cycle = 10; incr = 8;
             }
@@ -372,6 +428,8 @@ void CommTask (void *pdata)
             {
                 DispStr(8, 19,
                         "**** Master - pause at level:                 ****");
+
+                pause_level = ReadInt(40, 19, 3, 248);
 
                 level = 0; cycle = 1; incr = 8;
             }
@@ -397,23 +455,66 @@ void CommTask (void *pdata)
              incr = -incr;
          }
 
+         if(pause_level <= MAX_LEVEL)
+         {
+             int diff = pause_level - level;
+
+             if(0 == diff)
+             {
+                 OSTimeDly(OS_TICKS_PER_SEC);
+             }
+             else if(abs(incr) > abs(diff))
+             {
+                 level += diff;
+                 DispInt(40, 9, level);
+
+                 /* XXXX Move the platform XXXX */
+
+                 if(0 < incr)
+                 {
+                     OSMboxPost(FwdMbox, (void*)abs(diff));
+                 }
+                 else
+                 {
+                     OSMboxPost(RevMbox, (void*)abs(diff));
+                 }
+
+                 OSMutexPost(ChannelMutex);
+                 OSTimeDly(OS_TICKS_PER_SEC);
+
+                 level += (incr - diff);
+
+                 if(0 < incr)
+                 {
+                     OSMboxPost(FwdMbox, (void*)-abs(diff));
+                 }
+                 else
+                 {
+                     OSMboxPost(RevMbox, (void*)-abs(diff));
+                 }
+
+                 OSTimeDly(1);
+
+                 continue;
+             }
+         }
+
          if(0 < cycle)
          {
              level += incr;
 
              if(0 < incr)
              {
-                 OSMboxPost(FwdMbox, (void*)1);
+                 OSMboxPost(FwdMbox, (void*)8);
              }
              else
              {
-                 OSMboxPost(RevMbox, (void*)1);
+                 OSMboxPost(RevMbox, (void*)8);
              }
          }
       }
 
       OSMutexPost(ChannelMutex);
-
       OSTimeDly(1);
    }
 }
