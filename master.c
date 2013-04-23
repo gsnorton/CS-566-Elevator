@@ -22,7 +22,7 @@
                                        //  (application tasks + stat task +
                                        //    prog stack)
 
-#define OS_TICKS_PER_SEC       682
+#define OS_TICKS_PER_SEC       510
 
 #define OS_MUTEX_EN            1
 
@@ -296,8 +296,8 @@ void ForwardTask (void *pdata)
             case 1: channel_block = 0xE4; break;
             case 2: channel_block = 0xE6; break;
             case 3: channel_block = 0xE2; break;
-            case 4: channel_block = 0xEA; break;
-            case 5: channel_block = 0xE8; break;
+            case 4: channel_block = 0xCA; break;
+            case 5: channel_block = 0xC8; break;
             case 6: channel_block = 0xC9; break;
         }
      }
@@ -361,8 +361,8 @@ void ReverseTask (void *pdata)
             case 1: channel_block = 0xDA; break;
             case 2: channel_block = 0xD2; break;
             case 3: channel_block = 0xD6; break;
-            case 4: channel_block = 0xD4; break;
-            case 5: channel_block = 0xD5; break;
+            case 4: channel_block = 0xC4; break;
+            case 5: channel_block = 0xC5; break;
             case 6: channel_block = 0xC1; break;
         }
      }
@@ -391,6 +391,7 @@ void CommTask (void *pdata)
    register int incr = 0;
 
    int pause_level = MAX_LEVEL + 1;
+   int pause_cycle = -1;
 
    char key;
 
@@ -402,7 +403,7 @@ void CommTask (void *pdata)
 
       DispInt(32, 9, cycle);
       DispInt(40, 9, level);
-      DispInt(48, 9, pause_level);
+      DispInt(48, 9, pause_cycle);
 
 #endif
 
@@ -411,7 +412,7 @@ void CommTask (void *pdata)
          pause_level = MAX_LEVEL + 1;
 
          DispStr(8, 19,
-                 "**** Master - (t)en cycle test. (p)ause test. ****");
+                 "**** Master - (t)wo min. test.  (p)ause test. ****");
 
          if(kbhit())
          {
@@ -422,16 +423,16 @@ void CommTask (void *pdata)
                 DispStr(8, 19,
                         "**** Master - running                         ****");
 
-                level = 0; cycle = 10; incr = 8;
+                level = 0; cycle = 140; incr = 8;
             }
             else if('p' == key)
             {
                 DispStr(8, 19,
-                        "**** Master - pause at level:                 ****");
+                        "**** Master - pause at cycle:                 ****");
 
-                pause_level = ReadInt(40, 19, 3, 248);
+                pause_cycle = 10 - ReadInt(40, 19, 2, 10) + 1;
 
-                level = 0; cycle = 1; incr = 8;
+                level = 0; cycle = 10; incr = 8;
             }
          }
       }
@@ -454,6 +455,8 @@ void CommTask (void *pdata)
          {
              incr = -incr;
          }
+
+#if 0
 
          if(pause_level <= MAX_LEVEL)
          {
@@ -497,6 +500,13 @@ void CommTask (void *pdata)
 
                  continue;
              }
+         }
+
+#endif
+
+         if((cycle == pause_cycle) && (incr > 0) && (level == 160))
+         {
+            OSTimeDly(OS_TICKS_PER_SEC);
          }
 
          if(0 < cycle)

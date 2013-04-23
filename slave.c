@@ -22,7 +22,7 @@
                                        //  (application tasks + stat task +
                                        //    prog stack)
 
-#define OS_TICKS_PER_SEC       682
+#define OS_TICKS_PER_SEC       510
 
 #define OS_MUTEX_EN            1
 
@@ -181,7 +181,7 @@ void  TaskStart (void *data)
 *******************************************************************************
 */
 
-#define USE_DISP_STR 1
+#define USE_DISP_STR 0
 
 static void DispBits(int col, int row, int byte)
 {
@@ -234,7 +234,13 @@ void ForwardTask (void *pdata)
         {
             OSTimeDly(1);
             data = digInBank(0) & 0x03;
-            if(0 == data) return;
+
+            if(0 == data)
+            {
+                OSMutexPost(ChannelMutex);
+
+                return;
+            }
         }
 
         digOutBank(0, channel_block);
@@ -305,7 +311,13 @@ void ReverseTask (void *pdata)
         {
             OSTimeDly(1);
             data = digInBank(0) & 0x03;
-            if(0 == data) return;
+
+            if(0 == data)
+            {
+                OSMutexPost(ChannelMutex);
+
+                return;
+            }
         }
 
         digOutBank(0, channel_block);
