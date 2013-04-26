@@ -228,6 +228,11 @@ void ForwardTask (void *pdata)
 
      for(i = 0; i < 8; i++)
      {
+        /* This bit was intended to support former partner's
+           misinterpretation of the spect that we would have to parse
+           at a random level which could be in the middle of a cycle.
+           Retained because I don't like changing working code. */
+
         data = digInBank(0) & 0x03 & active;
 
         while(0x03 == data)
@@ -305,6 +310,11 @@ void ReverseTask (void *pdata)
 
      for(i = 7; i >= 0; i--)
      {
+        /* This bit was intended to support former partner's
+           misinterpretation of the spect that we would have to parse
+           at a random level which could be in the middle of a cycle.
+           Retained because I don't like changing working code. */
+
         data = digInBank(0) & 0x03 & active;
 
         while(0x03 == data)

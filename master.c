@@ -8,7 +8,7 @@
 
 // Redefine uC/OS-II configuration constants as necessary
 
-#define OS_MAX_EVENTS          4       // Maximum number of events
+#define OS_MAX_EVENTS          3       // Maximum number of events
                                        //  (semaphores, queues, mailboxes)
 #define OS_MAX_TASKS           6       // Maximum number of tasks system can
                                        //  create (less stat and idle tasks)
@@ -272,6 +272,20 @@ void ForwardTask (void *pdata)
 
 #endif
 
+     /* The messy bits here were intended to support former partner's
+        misinterpretation of the spec that the pause would have to take
+        place at a specified level between 0 and 248. The way this would
+        have worked is this:
+
+        mbox_val > 0 - move mbox_val steps into the cycle.
+
+        mbox_val < 0 - skip the first mbox_val steps and then move the
+                       rest of the cycle
+
+        To meet the actual spec I always send mbox_val of 8, making most
+        of the logic dead, but I left the code in place because #1 rule
+        of working code is 'don't change working code'. */
+
      for(i = 0; i < ((mbox_val > 0) ? mbox_val : 8); i++)
      {
         if((8 != mbox_val) && ((i + 1) == mbox_val))
@@ -337,6 +351,20 @@ void ReverseTask (void *pdata)
 
 #endif
 
+     /* The messy bits here were intended to support former partner's
+        misinterpretation of the spec that the pause would have to take
+        place at a specified level between 0 and 248. The way this would
+        have worked is this:
+
+        mbox_val > 0 - move mbox_val steps into the cycle.
+
+        mbox_val < 0 - skip the first mbox_val steps and then move the
+                       rest of the cycle
+
+        To meet the actual spec I always send mbox_val of 8, making most
+        of the logic dead, but I left the code in place because #1 rule
+        of working code is 'don't change working code'. */
+
      for(i = 0; i < ((mbox_val > 0) ? mbox_val : 8); i++)
      {
         if((8 != mbox_val) && ((i + 1) == mbox_val))
@@ -384,13 +412,10 @@ void CommTask (void *pdata)
 {
    INT8U err;
 
-   //register int data;
-
    register int cycle = 0;
    register int level = 0;
    register int incr = 0;
 
-   int pause_level = MAX_LEVEL + 1;
    int pause_cycle = -1;
 
    char key;
@@ -409,7 +434,7 @@ void CommTask (void *pdata)
 
       if(0 == cycle)
       {
-         pause_level = MAX_LEVEL + 1;
+         pause_cycle = -1;
 
          DispStr(8, 19,
                  "**** Master - (t)wo min. test.  (p)ause test. ****");
@@ -438,14 +463,6 @@ void CommTask (void *pdata)
       }
       else if(0 < cycle)
       {
-         //data = digInBank(0);
-
-#if USE_DISP_STR == 1
-
-         //DispBits(8, 9, data);
-
-#endif
-
          if((0 == level) && (incr < 0))
          {
              cycle -= 1;
@@ -455,54 +472,6 @@ void CommTask (void *pdata)
          {
              incr = -incr;
          }
-
-#if 0
-
-         if(pause_level <= MAX_LEVEL)
-         {
-             int diff = pause_level - level;
-
-             if(0 == diff)
-             {
-                 OSTimeDly(OS_TICKS_PER_SEC);
-             }
-             else if(abs(incr) > abs(diff))
-             {
-                 level += diff;
-                 DispInt(40, 9, level);
-
-                 /* XXXX Move the platform XXXX */
-
-                 if(0 < incr)
-                 {
-                     OSMboxPost(FwdMbox, (void*)abs(diff));
-                 }
-                 else
-                 {
-                     OSMboxPost(RevMbox, (void*)abs(diff));
-                 }
-
-                 OSMutexPost(ChannelMutex);
-                 OSTimeDly(OS_TICKS_PER_SEC);
-
-                 level += (incr - diff);
-
-                 if(0 < incr)
-                 {
-                     OSMboxPost(FwdMbox, (void*)-abs(diff));
-                 }
-                 else
-                 {
-                     OSMboxPost(RevMbox, (void*)-abs(diff));
-                 }
-
-                 OSTimeDly(1);
-
-                 continue;
-             }
-         }
-
-#endif
 
          if((cycle == pause_cycle) && (incr > 0) && (level == 160))
          {
